@@ -2,7 +2,7 @@ import os
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-app = App(token=os.environ["SLACK_BOT_TOKEN"])
+app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 orders = {}
 
@@ -10,7 +10,9 @@ orders = {}
 def handle_message(event, say, client):
     user = event.get("user")
     text = event.get("text", "").lower()
-    channel = event.get("channel")
+
+    if not user:
+        return
 
     if user not in orders:
         orders[user] = {"step": 0}
@@ -18,11 +20,11 @@ def handle_message(event, say, client):
     step = orders[user]["step"]
 
     if step == 0:
-        say("👋 Здравствуйте! Я бот кейтеринга.\nНапишите *старт* чтобы оформить заказ.")
+        say("👋 Здравствуйте! Напишите *старт* чтобы оформить заказ.")
         orders[user]["step"] = 1
 
     elif step == 1 and "старт" in text:
-        say("📅 Укажите дату мероприятия (например: 25 мая 2025)")
+        say("📅 Укажите дату мероприятия (например: 25 мая)")
         orders[user]["step"] = 2
 
     elif step == 2:
@@ -42,8 +44,6 @@ def handle_message(event, say, client):
 
     elif step == 5:
         orders[user]["address"] = event["text"]
-        
-        # Отправляем заказ в канал команды
         summary = f"""
 📦 *Новый заказ!*
 👤 Клиент: <@{user}>
@@ -52,15 +52,10 @@ def handle_message(event, say, client):
 🍽️ Меню: {orders[user]['menu']}
 📍 Адрес: {orders[user]['address']}
         """
-        
-        client.chat_postMessage(
-            channel="#заказы",
-            text=summary
-        )
-        
-        say("✅ Ваш заказ принят! Менеджер свяжется с вами в ближайшее время.")
+        client.chat_postMessage(channel="#заказы", text=summary)
+        say("✅ Ваш заказ принят! Менеджер свяжется с вами.")
         orders[user]["step"] = 0
 
 if __name__ == "__main__":
-    handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
+    handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
     handler.start()
